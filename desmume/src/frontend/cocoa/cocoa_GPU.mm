@@ -478,7 +478,7 @@ public:
 	if (numberThreads == 0)
 	{
 		isCPUCoreCountAuto = YES;
-		if (numberCores < 2)
+		if (numberCores < 4)
 		{
 			numberCores = 1;
 		}
@@ -499,11 +499,13 @@ public:
 	gpuEvent->ApplyRender3DSettingsLock();
 	
 	CommonSettings.num_cores = numberCores;
-	
-	if (renderingEngineID == CORE3DLIST_SWRASTERIZE)
+
+	GPU->Set3DRendererByID(CORE3DLIST_SWRASTERIZE);
+
+	/*if (renderingEngineID == CORE3DLIST_SWRASTERIZE)
 	{
 		GPU->Set3DRendererByID(renderingEngineID);
-	}
+	}*/
 	
 	gpuEvent->ApplyRender3DSettingsUnlock();
 }
@@ -514,7 +516,7 @@ public:
 	const NSUInteger numberThreads = isCPUCoreCountAuto ? 0 : (NSUInteger)CommonSettings.num_cores;
 	gpuEvent->ApplyRender3DSettingsUnlock();
 	
-	return numberThreads;
+	return 0;//numberThreads;
 }
 
 - (void) setRender3DLineHack:(BOOL)state

@@ -464,6 +464,8 @@ void ClientInputHandler::ProcessInputs()
 {
 	// Before we begin input processing, we need to send all pending inputs to the core code.
 	pthread_mutex_lock(&this->_mutexInputsPending);
+
+	std::cout << "processing inputs" << std::endl;
 	
 	NDS_setPad(this->_clientInputPending[NDSInputID_Right].isPressed,
 			   this->_clientInputPending[NDSInputID_Left].isPressed,

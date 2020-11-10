@@ -50,6 +50,8 @@ volatile bool execute = true;
 	{
 		return self;
 	}
+
+	NSLog(@"In set up core");
 	
 	// Set up threading locks
 	spinlockDisplayMode = OS_SPINLOCK_INIT;
@@ -138,6 +140,11 @@ volatile bool execute = true;
 	pthread_rwlock_destroy(&rwlockCoreExecute);
 	
 	[super dealloc];
+}
+
+- (CocoaDSController *) getCdsController
+{
+	return cdsController;
 }
 
 - (NSInteger) displayMode

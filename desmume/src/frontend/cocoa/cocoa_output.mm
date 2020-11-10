@@ -304,11 +304,11 @@
 - (void) setSpuAdvancedLogic:(BOOL)state
 {
 	OSSpinLockLock(&spinlockSpuAdvancedLogic);
-	[property setValue:[NSNumber numberWithBool:state] forKey:@"spuAdvancedLogic"];
+	[property setValue:[NSNumber numberWithBool:false] forKey:@"spuAdvancedLogic"];//state] forKey:@"spuAdvancedLogic"];
 	OSSpinLockUnlock(&spinlockSpuAdvancedLogic);
 	
 	pthread_rwlock_wrlock(self.rwlockProducer);
-	CommonSettings.spu_advanced = state;
+	CommonSettings.spu_advanced = false;//state;
 	pthread_rwlock_unlock(self.rwlockProducer);
 }
 
@@ -1099,7 +1099,7 @@
 	const BOOL theState = (_cdv->GetUseVerticalSync()) ? YES : NO;
 	OSSpinLockUnlock(&spinlockUseVerticalSync);
 	
-	return theState;
+	return NO;//theState;
 }
 
 - (void) setVideoFiltersPreferGPU:(BOOL)theState
@@ -1115,7 +1115,7 @@
 	const BOOL theState = (_cdv->Get3DPresenter()->GetFiltersPreferGPU()) ? YES : NO;
 	OSSpinLockUnlock(&spinlockVideoFiltersPreferGPU);
 	
-	return theState;
+	return NO;//theState;
 }
 
 - (void) setSourceDeposterize:(BOOL)theState

@@ -290,7 +290,7 @@ volatile bool execute = true;
 
 - (CGFloat) speedScalar
 {
-	const CGFloat scalar = (CGFloat)execControl->GetExecutionSpeed();
+	const CGFloat scalar = 0.5;//(CGFloat)execControl->GetExecutionSpeed();
 	return scalar;
 }
 
@@ -337,7 +337,7 @@ volatile bool execute = true;
 - (BOOL) isSpeedLimitEnabled
 {
 	const bool enable = execControl->GetEnableSpeedLimiter();
-	return (enable) ? YES : NO;
+	return YES;//(enable) ? YES : NO;
 }
 
 - (void) setIsCheatingEnabled:(BOOL)enable
@@ -420,7 +420,7 @@ volatile bool execute = true;
 - (BOOL) emuFlagAdvancedBusLevelTiming
 {
 	const bool enable = execControl->GetEnableAdvancedBusLevelTiming();
-	return (enable) ? YES : NO;
+	return NO;//(enable) ? YES : NO;
 }
 
 - (void) setEmuFlagRigorousTiming:(BOOL)enable
@@ -431,7 +431,7 @@ volatile bool execute = true;
 - (BOOL) emuFlagRigorousTiming
 {
 	const bool enable = execControl->GetEnableRigorous3DRenderingTiming();
-	return (enable) ? YES : NO;
+	return YES;//(enable) ? YES : NO;
 }
 
 - (void) setEmuFlagUseGameSpecificHacks:(BOOL)enable
@@ -454,7 +454,7 @@ volatile bool execute = true;
 - (BOOL) emuFlagUseExternalBios
 {
 	const bool enable = execControl->GetEnableExternalBIOS();
-	return (enable) ? YES : NO;
+	return NO;//(enable) ? YES : NO;
 }
 
 - (void) setEmuFlagEmulateBiosInterrupts:(BOOL)enable

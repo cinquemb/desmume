@@ -991,7 +991,7 @@
 - (void) markUnsupportedOpenGLMSAAMenuItems
 {
 	CocoaDSCore *cdsCore = (CocoaDSCore *)[cdsCoreController content];
-	NSUInteger maxSamples = [[cdsCore cdsGPU] openglDeviceMaxMultisamples];
+	NSUInteger maxSamples = 2;//[[cdsCore cdsGPU] openglDeviceMaxMultisamples];
 	size_t itemCount = [openglMSAAPopUpButton numberOfItems];
 	BOOL needAddUnsupportedSeparator = YES;
 	

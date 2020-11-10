@@ -227,7 +227,7 @@ uint8_t ClientExecutionControl::GetJITMaxBlockSize()
 	const uint8_t blockSize = this->_settingsPending.JITMaxBlockSize;
 	pthread_mutex_unlock(&this->_mutexSettingsPendingOnReset);
 	
-	return blockSize;
+	return 100;//blockSize;
 }
 
 void ClientExecutionControl::SetJITMaxBlockSize(uint8_t blockSize)
@@ -394,7 +394,7 @@ bool ClientExecutionControl::GetEnableAdvancedBusLevelTiming()
 	const bool enable = this->_settingsPending.enableAdvancedBusLevelTiming;
 	pthread_mutex_unlock(&this->_mutexSettingsPendingOnNDSExec);
 	
-	return enable;
+	return false;//enable;
 }
 
 void ClientExecutionControl::SetEnableAdvancedBusLevelTiming(bool enable)

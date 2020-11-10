@@ -40,7 +40,7 @@
 #define DS_FRAMES_PER_SECOND						59.8261		// Number of DS frames per second.
 #define DS_SECONDS_PER_FRAME						(1.0 / DS_FRAMES_PER_SECOND) // The length of time in seconds that, ideally, a frame should be processed within.
 
-#define FRAME_SKIP_AGGRESSIVENESS					1.0			// Must be a value between 0.0 (inclusive) and positive infinity.
+#define FRAME_SKIP_AGGRESSIVENESS					4.0			// Must be a value between 0.0 (inclusive) and positive infinity.
 																// This value acts as a scalar multiple of the frame skip.
 #define FRAME_SKIP_BIAS								0.9			// May be any real number. This value acts as a vector addition to the frame skip.
 #define MAX_FRAME_SKIP								(DS_FRAMES_PER_SECOND / 2.98)
