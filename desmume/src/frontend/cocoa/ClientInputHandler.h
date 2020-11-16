@@ -399,6 +399,8 @@ public:
 	
 	void SetClientInputStateUsingID(NDSInputID inputID, bool pressedState);
 	void SetClientInputStateUsingID(NDSInputID inputID, bool pressedState, bool isTurboEnabled, uint32_t turboPattern, uint32_t turboPatternLength);
+	void SetClientInputStateUsingIDMOD(NDSInputID inputID, bool pressedState, bool isTurboEnabled, uint32_t turboPattern, uint32_t turboPatternLength);
+
 	void SetClientTouchState(bool pressedState, uint8_t touchLocX, uint8_t touchLocY, uint8_t touchPressure);
 	
 	double GetSineWaveFrequency();

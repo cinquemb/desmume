@@ -474,6 +474,7 @@ public:
 
 - (void) setRender3DThreads:(NSUInteger)numberThreads
 {
+	NSLog(@"in setRender3DThreads");
 	NSUInteger numberCores = [[NSProcessInfo processInfo] activeProcessorCount];
 	if (numberThreads == 0)
 	{

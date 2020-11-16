@@ -112,7 +112,20 @@ ClientInputHandler::ClientInputHandler()
 	_userInputMap[NDSInputID_Left]      = 11;
 	_userInputMap[NDSInputID_Right]     = 12;
 	_userInputMap[NDSInputID_Lid]       = 13;
-	
+
+	std::cout << "NDSInputID_R: " << NDSInputID_R << std::endl;
+	std::cout << "NDSInputID_L: " << NDSInputID_L << std::endl;
+	std::cout << "NDSInputID_X: " << NDSInputID_X << std::endl;
+	std::cout << "NDSInputID_Y: " << NDSInputID_Y << std::endl;
+	std::cout << "NDSInputID_A: " << NDSInputID_A << std::endl;
+	std::cout << "NDSInputID_B: " << NDSInputID_B << std::endl;
+	std::cout << "NDSInputID_Start: " << NDSInputID_Start << std::endl;
+	std::cout << "NDSInputID_Select: " << NDSInputID_Select << std::endl;
+	std::cout << "NDSInputID_Up: " << NDSInputID_Up << std::endl;
+	std::cout << "NDSInputID_Down: " << NDSInputID_Down << std::endl;
+	std::cout << "NDSInputID_Left: " << NDSInputID_Left << std::endl;
+	std::cout << "NDSInputID_Right: " << NDSInputID_Right << std::endl;
+
 	_inputStateBitMap[NDSInputID_A]                 = NDSInputStateBit_A;
 	_inputStateBitMap[NDSInputID_B]                 = NDSInputStateBit_B;
 	_inputStateBitMap[NDSInputID_Select]            = NDSInputStateBit_Select;
@@ -203,6 +216,15 @@ void ClientInputHandler::ClearAutohold()
 void ClientInputHandler::SetClientInputStateUsingID(NDSInputID inputID, bool pressedState)
 {
 	this->SetClientInputStateUsingID(inputID, pressedState, false, 0, 0);
+}
+
+void ClientInputHandler::SetClientInputStateUsingIDMOD(NDSInputID inputID, bool pressedState, bool isTurboEnabled, uint32_t turboPattern, uint32_t turboPatternLength)
+{	
+	this->_clientInputPending[inputID].isPressed = pressedState;
+	this->_clientInputPending[inputID].turbo = isTurboEnabled;
+	this->_clientInputPending[inputID].turboPattern = turboPattern;
+	this->_clientInputPending[inputID].turboPatternLength = (turboPatternLength > 32) ? 32 : turboPatternLength;
+
 }
 
 void ClientInputHandler::SetClientInputStateUsingID(NDSInputID inputID, bool pressedState, bool isTurboEnabled, uint32_t turboPattern, uint32_t turboPatternLength)
@@ -463,10 +485,7 @@ int16_t ClientInputHandler:: GetPaddleAdjustApplied()
 void ClientInputHandler::ProcessInputs()
 {
 	// Before we begin input processing, we need to send all pending inputs to the core code.
-	pthread_mutex_lock(&this->_mutexInputsPending);
-
-	std::cout << "processing inputs" << std::endl;
-	
+	pthread_mutex_lock(&this->_mutexInputsPending);	
 	NDS_setPad(this->_clientInputPending[NDSInputID_Right].isPressed,
 			   this->_clientInputPending[NDSInputID_Left].isPressed,
 			   this->_clientInputPending[NDSInputID_Down].isPressed,

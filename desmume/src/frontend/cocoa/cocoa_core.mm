@@ -37,6 +37,11 @@
 #include "../../SPU.h"
 #undef BOOL
 
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <stdio.h>
+
+
 //accessed from other files
 volatile bool execute = true;
 
@@ -1113,6 +1118,7 @@ volatile bool execute = true;
 
 static void* RunCoreThread(void *arg)
 {
+	std::cout << "in RunCoreThread" << std::endl;
 	CoreThreadParam *param = (CoreThreadParam *)arg;
 	CocoaDSCore *cdsCore = (CocoaDSCore *)param->cdsCore;
 	ClientExecutionControl *execControl = [cdsCore execControl];
@@ -1137,6 +1143,24 @@ static void* RunCoreThread(void *arg)
 	ExecutionBehavior behavior = ExecutionBehavior_Pause;
 	ExecutionBehavior lastBehavior = ExecutionBehavior_Pause;
 	uint64_t frameJumpTarget = 0;
+
+		/*MODS*/
+
+
+	key_t key;
+    int shmid;
+    char *str;
+    NSString *_prev_str;
+	
+
+    key = ftok("/Users/cinquemb/openemu/OpenEmu/nfbMemoryBridge", 'a'); 
+    shmid = shmget(key, 1024, 0666); 
+    if (shmid < 0) {
+        NSLog(@"*** shmget error (client) ***");
+    }
+    str = (char*) shmat(shmid, NULL, 0);
+    _prev_str = @"";
+    /*MODS*/
 	
 	[[[cdsCore cdsGPU] sharedData] semaphoreFramebufferCreate];
 	
@@ -1174,10 +1198,42 @@ static void* RunCoreThread(void *arg)
 		
 		frameTime = execControl->GetFrameTime();
 		frameJumpTarget = execControl->GetFrameJumpTargetApplied();
+
+		/* MODS */
+
+		int len = (int)strlen(str);
+		NSNumber *lenNumber = [NSNumber numberWithInt:len];
+		NSString *lenNumberStr = [lenNumber stringValue];
+
+		NSString *nfbString = [NSString stringWithUTF8String:str];
+
+		bool is_input_set = false;
+		NDSInputID b;
+		if (![nfbString isEqual:_prev_str]){
+			NSArray *eventValues = [nfbString componentsSeparatedByString:@","];
+
+			if ([eventValues count] == 12){
+				NSUInteger keyCode = (![eventValues[11] isEqual:@"null"]) ? [eventValues[11] integerValue] : nil;
+
+				b = static_cast<NDSInputID>(keyCode);
+
+				NSLog(@"before push button");
+				inputHandler->SetClientInputStateUsingID(b,true);
+				NSLog(@"after push button");
+				
+				is_input_set = true;
+			}
+		}
+		
+		_prev_str = nfbString;
+		/*MODS */
 		
 		inputHandler->ProcessInputs();
 		inputHandler->ApplyInputs();
 		execControl->ApplySettingsOnNDSExec();
+
+		if (is_input_set == true)
+			inputHandler->SetClientInputStateUsingID(b,false);
 		
 		avCaptureObject = execControl->GetClientAVCaptureObjectApplied();
 		if ( (avCaptureObject != NULL) && (avCaptureObject->IsCapturingVideo() || avCaptureObject->IsCapturingAudio()) )

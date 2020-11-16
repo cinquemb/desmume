@@ -83,6 +83,7 @@ static NSDictionary *hidUsageTable = nil;
 
 - (id) initWithDevice:(IOHIDDeviceRef)theDevice hidManager:(InputHIDManager *)theHIDManager
 {
+	NSLog(@"initWithDevice in DeSmuME");
 	self = [super init];
 	if(self == nil)
 	{

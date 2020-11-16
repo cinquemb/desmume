@@ -64,7 +64,8 @@ typedef struct
 	NSString *extFirmwareMACAddressString;
 	NSString *firmwareMACAddressSelectionString;
 	NSString *currentSessionMACAddressString;
-	
+
+
 	OSSpinLock spinlockCdsController;
 	OSSpinLock spinlockMasterExecute;
 }
