@@ -1150,7 +1150,7 @@ static void* RunCoreThread(void *arg)
 	key_t key;
     int shmid;
     char *str;
-    NSString *_prev_str;
+    __block NSString *_prev_str;
 	
 
     key = ftok("/Users/cinquemb/openemu/OpenEmu/nfbMemoryBridge", 'a'); 
@@ -1160,7 +1160,48 @@ static void* RunCoreThread(void *arg)
     }
     str = (char*) shmat(shmid, NULL, 0);
     _prev_str = @"";
+
+    __block bool is_input_set = false;
+    __block NDSInputID b;
+
+    // Attach timer that checks new events from external process every 1 ms (0.001)
+    CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent() + 1, 0.001, 0, 0, ^(CFRunLoopTimerRef timer) {
+		//TODO: need to figure out how to:
+		//    - test changing values from external process (csv formate with no headers)
+
+		if (is_input_set == false){
+			int len = (int)strlen(str);
+			NSNumber *lenNumber = [NSNumber numberWithInt:len];
+			NSString *lenNumberStr = [lenNumber stringValue];
+
+			NSString *nfbString = [NSString stringWithUTF8String:str];
+
+			
+			
+			if (![nfbString isEqual:_prev_str]){
+				NSArray *eventValues = [nfbString componentsSeparatedByString:@","];
+
+				if ([eventValues count] == 12){
+					NSUInteger keyCode = (![eventValues[11] isEqual:@"null"]) ? [eventValues[11] integerValue] : nil;
+
+					b = static_cast<NDSInputID>(keyCode);
+
+					NSLog(@"before push button");
+					inputHandler->SetClientInputStateUsingID(b,true);
+					NSLog(@"after push button");
+					
+					is_input_set = true;
+				}
+			}
+			_prev_str = nfbString;
+		}
+		
+		
+	  });
+	  CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopCommonModes);
     /*MODS*/
+
+
 	
 	[[[cdsCore cdsGPU] sharedData] semaphoreFramebufferCreate];
 	
@@ -1198,42 +1239,15 @@ static void* RunCoreThread(void *arg)
 		
 		frameTime = execControl->GetFrameTime();
 		frameJumpTarget = execControl->GetFrameJumpTargetApplied();
-
-		/* MODS */
-
-		int len = (int)strlen(str);
-		NSNumber *lenNumber = [NSNumber numberWithInt:len];
-		NSString *lenNumberStr = [lenNumber stringValue];
-
-		NSString *nfbString = [NSString stringWithUTF8String:str];
-
-		bool is_input_set = false;
-		NDSInputID b;
-		if (![nfbString isEqual:_prev_str]){
-			NSArray *eventValues = [nfbString componentsSeparatedByString:@","];
-
-			if ([eventValues count] == 12){
-				NSUInteger keyCode = (![eventValues[11] isEqual:@"null"]) ? [eventValues[11] integerValue] : nil;
-
-				b = static_cast<NDSInputID>(keyCode);
-
-				NSLog(@"before push button");
-				inputHandler->SetClientInputStateUsingID(b,true);
-				NSLog(@"after push button");
-				
-				is_input_set = true;
-			}
-		}
-		
-		_prev_str = nfbString;
-		/*MODS */
 		
 		inputHandler->ProcessInputs();
 		inputHandler->ApplyInputs();
 		execControl->ApplySettingsOnNDSExec();
 
-		if (is_input_set == true)
+		if (is_input_set == true){
 			inputHandler->SetClientInputStateUsingID(b,false);
+			is_input_set = false;
+		}
 		
 		avCaptureObject = execControl->GetClientAVCaptureObjectApplied();
 		if ( (avCaptureObject != NULL) && (avCaptureObject->IsCapturingVideo() || avCaptureObject->IsCapturingAudio()) )
