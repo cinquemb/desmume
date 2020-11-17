@@ -1125,31 +1125,32 @@ static void* RunCoreThread(void *arg)
 	ClientInputHandler *inputHandler = execControl->GetClientInputHandler();
 	NSMutableArray *cdsOutputList = [cdsCore cdsOutputList];
 	const NDSFrameInfo &ndsFrameInfo = execControl->GetNDSFrameInfo();
-	ClientAVCaptureObject *avCaptureObject = NULL;
+	__block ClientAVCaptureObject *avCaptureObject = NULL;
 	
-	double startTime = 0.0;
-	double frameTime = 0.0; // The amount of time that is expected for the frame to run.
+	__block double startTime = 0.0;
+	__block double frameTime = 0.0; // The amount of time that is expected for the frame to run.
 	
-	const double standardNDSFrameTime = execControl->CalculateFrameAbsoluteTime(1.0);
-	double lastSelectedExecSpeedSelected = 1.0;
-	double executionSpeedAverage = 0.0;
-	double executionSpeedAverageFramesCollected = 0.0;
-	double executionWaitBias = 1.0;
-	double lastExecutionWaitBias = 1.0;
-	double lastExecutionSpeedDifference = 0.0;
-	bool needRestoreExecutionWaitBias = false;
-	bool lastExecutionSpeedLimitEnable = execControl->GetEnableSpeedLimiter();
+	__block const double standardNDSFrameTime = execControl->CalculateFrameAbsoluteTime(1.0);
+	__block double lastSelectedExecSpeedSelected = 1.0;
+	__block double executionSpeedAverage = 0.0;
+	__block double executionSpeedAverageFramesCollected = 0.0;
+	__block double executionWaitBias = 1.0;
+	__block double lastExecutionWaitBias = 1.0;
+	__block double lastExecutionSpeedDifference = 0.0;
+	__block bool needRestoreExecutionWaitBias = false;
+	__block bool lastExecutionSpeedLimitEnable = execControl->GetEnableSpeedLimiter();
 	
-	ExecutionBehavior behavior = ExecutionBehavior_Pause;
-	ExecutionBehavior lastBehavior = ExecutionBehavior_Pause;
-	uint64_t frameJumpTarget = 0;
+	__block ExecutionBehavior behavior = ExecutionBehavior_Pause;
+	__block ExecutionBehavior lastBehavior = ExecutionBehavior_Pause;
+	__block uint64_t frameJumpTarget = 0;
 
 		/*MODS*/
 
 
 	key_t key;
     int shmid;
-    char *str;
+    __block char *str;
+    char *null_str = "null";
     __block NSString *_prev_str;
 	
 
@@ -1161,40 +1162,300 @@ static void* RunCoreThread(void *arg)
     str = (char*) shmat(shmid, NULL, 0);
     _prev_str = @"";
 
-    __block bool is_input_set = false;
     __block NDSInputID b;
+    __block NDSInputID prev_b;
 
     // Attach timer that checks new events from external process every 1 ms (0.001)
     CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent() + 1, 0.001, 0, 0, ^(CFRunLoopTimerRef timer) {
 		//TODO: need to figure out how to:
 		//    - test changing values from external process (csv formate with no headers)
 
-		if (is_input_set == false){
-			int len = (int)strlen(str);
-			NSNumber *lenNumber = [NSNumber numberWithInt:len];
-			NSString *lenNumberStr = [lenNumber stringValue];
+		int len = (int)strlen(str);
+		NSNumber *lenNumber = [NSNumber numberWithInt:len];
+		NSString *lenNumberStr = [lenNumber stringValue];
 
-			NSString *nfbString = [NSString stringWithUTF8String:str];
+		NSString *nfbString = [NSString stringWithUTF8String:str];
 
+		if (![nfbString isEqual:_prev_str]){
+			NSArray *eventValues = [nfbString componentsSeparatedByString:@","];
+
+			if ([eventValues count] == 12){
+				NSTimeInterval timestamp = (![eventValues[0] isEqual:@"null"]) ? [eventValues[0] doubleValue] : [NSDate timeIntervalSinceReferenceDate];
+				NSUInteger keyCode = (![eventValues[11] isEqual:@"null"]) ? [eventValues[11] integerValue] : nil;
+
+				b = static_cast<NDSInputID>(keyCode);
+
+				NSLog(@"before push button");
+				inputHandler->SetClientInputStateUsingID(b,true);
+				inputHandler->ProcessInputs();
+				inputHandler->ApplyInputs();
+
+
+
+
+				/* frame stuff */
+
+
+				startTime = execControl->GetCurrentAbsoluteTime();
 			
-			
-			if (![nfbString isEqual:_prev_str]){
-				NSArray *eventValues = [nfbString componentsSeparatedByString:@","];
-
-				if ([eventValues count] == 12){
-					NSUInteger keyCode = (![eventValues[11] isEqual:@"null"]) ? [eventValues[11] integerValue] : nil;
-
-					b = static_cast<NDSInputID>(keyCode);
-
-					NSLog(@"before push button");
-					inputHandler->SetClientInputStateUsingID(b,true);
-					NSLog(@"after push button");
+				pthread_mutex_lock(&param->mutexThreadExecute);
+				execControl->ApplySettingsOnExecutionLoopStart();
+				behavior = execControl->GetExecutionBehaviorApplied();
+				
+				while (!(behavior != ExecutionBehavior_Pause && execute))
+				{
+					pthread_cond_wait(&param->condThreadExecute, &param->mutexThreadExecute);
 					
-					is_input_set = true;
+					startTime = execControl->GetCurrentAbsoluteTime();
+					execControl->ApplySettingsOnExecutionLoopStart();
+					behavior = execControl->GetExecutionBehaviorApplied();
 				}
+				
+				if ( (lastBehavior == ExecutionBehavior_Run) && (behavior != ExecutionBehavior_Run) )
+				{
+					lastExecutionWaitBias = executionWaitBias;
+					needRestoreExecutionWaitBias = true;
+				}
+				
+				if ( (behavior == ExecutionBehavior_Run) && lastExecutionSpeedLimitEnable && !execControl->GetEnableSpeedLimiter() )
+				{
+					lastExecutionWaitBias = executionWaitBias;
+				}
+				else if ( (behavior == ExecutionBehavior_Run) && !lastExecutionSpeedLimitEnable && execControl->GetEnableSpeedLimiter() )
+				{
+					needRestoreExecutionWaitBias = true;
+				}
+				
+				frameTime = execControl->GetFrameTime();
+				frameJumpTarget = execControl->GetFrameJumpTargetApplied();
+				
+				inputHandler->ProcessInputs();
+				inputHandler->ApplyInputs();
+				execControl->ApplySettingsOnNDSExec();
+				
+				avCaptureObject = execControl->GetClientAVCaptureObjectApplied();
+				if ( (avCaptureObject != NULL) && (avCaptureObject->IsCapturingVideo() || avCaptureObject->IsCapturingAudio()) )
+				{
+					avCaptureObject->StartFrame();
+				}
+				else
+				{
+					avCaptureObject = NULL;
+				}
+				
+				// Execute the frame and increment the frame counter.
+				pthread_rwlock_wrlock(&param->rwlockCoreExecute);
+				NDS_exec<false>();
+				SPU_Emulate_user();
+				execControl->FetchOutputPostNDSExec();
+				pthread_rwlock_unlock(&param->rwlockCoreExecute);
+				
+				// Check if an internal execution error occurred that halted the emulation.
+				/*if (!execute)
+				{
+					NDSError ndsError = NDS_GetLastError();
+					pthread_mutex_unlock(&param->mutexThreadExecute);
+					
+					inputHandler->SetHardwareMicPause(true);
+					inputHandler->ClearAverageMicLevel();
+					inputHandler->ReportAverageMicLevel();
+					
+					[cdsCore postNDSError:ndsError];
+					continue;
+				}*/
+				
+				if ( (avCaptureObject != NULL) && !avCaptureObject->IsCapturingVideo() )
+				{
+					avCaptureObject->StreamWriteStart();
+				}
+				
+				// Make sure that the mic level is updated at least once every 8 frames, regardless
+				// of whether the NDS actually reads the mic or not.
+				if ((ndsFrameInfo.frameIndex & 0x07) == 0x07)
+				{
+					inputHandler->ReportAverageMicLevel();
+					inputHandler->ClearAverageMicLevel();
+				}
+				
+				const uint8_t framesToSkip = execControl->GetFramesToSkip();
+				
+				if ( (behavior == ExecutionBehavior_Run) || (behavior == ExecutionBehavior_FrameJump) )
+				{
+					if ((ndsFrameInfo.frameIndex & 0x1F) == 0x1F)
+					{
+						if (executionSpeedAverageFramesCollected > 0.0001)
+						{
+							const double execSpeedSelected = execControl->GetExecutionSpeedApplied();
+							const double execSpeedCurrent = (executionSpeedAverage / executionSpeedAverageFramesCollected);
+							const double execSpeedDifference = execSpeedSelected - execSpeedCurrent;
+							
+							execControl->SetFrameInfoExecutionSpeed(execSpeedCurrent * 100.0);
+							
+							if ( (behavior == ExecutionBehavior_Run) && needRestoreExecutionWaitBias )
+							{
+								executionWaitBias = lastExecutionWaitBias;
+								needRestoreExecutionWaitBias = false;
+							}
+							else
+							{
+								if (lastSelectedExecSpeedSelected == execSpeedSelected)
+								{
+									executionWaitBias -= execSpeedDifference;
+									lastExecutionSpeedDifference = execSpeedDifference;
+									
+									if (executionWaitBias < EXECUTION_WAIT_BIAS_MIN)
+									{
+										executionWaitBias = EXECUTION_WAIT_BIAS_MIN;
+									}
+									else if (executionWaitBias > EXECUTION_WAIT_BIAS_MAX)
+									{
+										executionWaitBias = EXECUTION_WAIT_BIAS_MAX;
+									}
+								}
+								else
+								{
+									executionWaitBias = 1.0;
+									lastSelectedExecSpeedSelected = execSpeedSelected;
+								}
+							}
+						}
+						
+						executionSpeedAverage = 0.0;
+						executionSpeedAverageFramesCollected = 0.0;
+					}
+				}
+				else
+				{
+					execControl->SetFrameInfoExecutionSpeed(0.0);
+					executionSpeedAverage = 0.0;
+					executionSpeedAverageFramesCollected = 0.0;
+				}
+				
+				pthread_rwlock_rdlock(&param->rwlockOutputList);
+				
+				switch (behavior)
+				{
+					case ExecutionBehavior_Run:
+					case ExecutionBehavior_FrameAdvance:
+					case ExecutionBehavior_FrameJump:
+					{
+						for (CocoaDSOutput *cdsOutput in cdsOutputList)
+						{
+							if ([cdsOutput isKindOfClass:[CocoaDSDisplay class]])
+							{
+								[(CocoaDSDisplay *)cdsOutput setNDSFrameInfo:ndsFrameInfo];
+								
+								if (framesToSkip == 0)
+								{
+									[cdsOutput doCoreEmuFrame];
+								}
+							}
+						}
+						break;
+					}
+						
+					default:
+						break;
+				}
+				
+				pthread_rwlock_unlock(&param->rwlockOutputList);
+				
+				switch (behavior)
+				{
+					case ExecutionBehavior_Run:
+					{
+						if (execControl->GetEnableFrameSkipApplied() && !avCaptureObject)
+						{
+							if (framesToSkip > 0)
+							{
+								NDS_SkipNextFrame();
+								execControl->SetFramesToSkip(framesToSkip - 1);
+							}
+							else
+							{
+								const double frameTimeBias = (lastExecutionSpeedDifference > 0.0) ? 1.0 - lastExecutionSpeedDifference : 1.0;
+								execControl->SetFramesToSkip( execControl->CalculateFrameSkip(startTime, frameTime * frameTimeBias) );
+							}
+						}
+						break;
+					}
+					
+					case ExecutionBehavior_FrameJump:
+					{
+						if (!avCaptureObject)
+						{
+							if (framesToSkip > 0)
+							{
+								NDS_SkipNextFrame();
+								execControl->SetFramesToSkip(framesToSkip - 1);
+							}
+							else
+							{
+								execControl->SetFramesToSkip( (uint8_t)((DS_FRAMES_PER_SECOND * 1.0) + 0.85) );
+							}
+						}
+						break;
+					}
+						
+					default:
+						break;
+				}
+				
+				pthread_mutex_unlock(&param->mutexThreadExecute);
+				
+				// If we're doing a frame advance, switch back to pause state immediately
+				// after we're done with the frame.
+				if (behavior == ExecutionBehavior_FrameAdvance)
+				{
+					[cdsCore setCoreState:ExecutionBehavior_Pause];
+				}
+				else if (behavior == ExecutionBehavior_FrameJump)
+				{
+					if (ndsFrameInfo.frameIndex == (frameJumpTarget - 1))
+					{
+						execControl->ResetFramesToSkip();
+					}
+					else if (ndsFrameInfo.frameIndex >= frameJumpTarget)
+					{
+						[cdsCore restoreCoreState];
+					}
+				}
+				else
+				{
+					// If there is any time left in the loop, go ahead and pad it.
+					const double biasedFrameTime = frameTime * executionWaitBias;
+					
+					if (biasedFrameTime > 0.0)
+					{
+						if ( (execControl->GetCurrentAbsoluteTime() - startTime) < frameTime )
+						{
+							execControl->WaitUntilAbsoluteTime(startTime + biasedFrameTime);
+						}
+					}
+				}
+				
+				const double endTime = execControl->GetCurrentAbsoluteTime();
+				const double currentExecutionSpeed = standardNDSFrameTime / (endTime - startTime);
+				executionSpeedAverage += currentExecutionSpeed;
+				executionSpeedAverageFramesCollected += 1.0;
+				lastBehavior = behavior;
+				lastExecutionSpeedLimitEnable = execControl->GetEnableSpeedLimiterApplied();
+
+				/* frame stuff */
+
+
+				//inputHandler->SetClientInputStateUsingID(b,false);
+				//inputHandler->ProcessInputs();
+				//inputHandler->ApplyInputs();
+				NSLog(@"after push button");
+				// strcpy(str, null_str);
+			
 			}
-			_prev_str = nfbString;
 		}
+
+		
+		//_prev_str = nfbString;
+		prev_b = b;
 		
 		
 	  });
@@ -1243,11 +1504,6 @@ static void* RunCoreThread(void *arg)
 		inputHandler->ProcessInputs();
 		inputHandler->ApplyInputs();
 		execControl->ApplySettingsOnNDSExec();
-
-		if (is_input_set == true){
-			inputHandler->SetClientInputStateUsingID(b,false);
-			is_input_set = false;
-		}
 		
 		avCaptureObject = execControl->GetClientAVCaptureObjectApplied();
 		if ( (avCaptureObject != NULL) && (avCaptureObject->IsCapturingVideo() || avCaptureObject->IsCapturingAudio()) )
